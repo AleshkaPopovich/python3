@@ -9,6 +9,13 @@ Any 14 / 16 problems solved count as 100%
     method say_hi() which prints "Hello, I am {name}"
 """
 
+class User():
+  def __init__(self, name):
+    self.name = name
+    
+  def say_hi(self):
+    print(f"Hello, I am {self.name}")
+  
 
 """
 2) BankAccount
@@ -22,6 +29,11 @@ Rules:
 - `withdraw` bigger than current balance is ignored.
 """
 
+class BankAccount():
+  def __init__(self, owner: str, balance: float = 0.0) -> None:
+    self.owner = owner
+    self.balance = balance if balance >= 0 else 0
+    
 
 """
 3) Team
@@ -34,6 +46,16 @@ Rules:
 - Each instance has independent member storage.
 """
 
+class Team():
+  def __init__(self) -> None:
+    self.members = []
+    
+  def add(self, name: str) -> None:
+    self.members.append(name)
+    
+  def __len__(self) -> int:
+    return len(self.members)
+
 """ (Advanced, optional)
 5) QueueState
 Create class `QueueState`:
@@ -45,7 +67,9 @@ Rules:
 - FIFO behavior.
 - `pop` returns `None` when empty.
 """
-
+class QueueState():
+  def __init__(self) -> None:
+    self.items = []
 
 """ (Advanced, optional)
 6) Wallet + custom errors
@@ -100,6 +124,17 @@ Rules:
 - Store positive dimensions using absolute values.
 """
 
+class Rectangle():
+  def __init__(self, width: float, height: float) -> None:
+    width = abs(width)
+    height = abs(height)
+    self.width = width
+    self.height = height
+    
+  def area(self) -> float:
+    return self.width * self.height
+
+    
 
 """
 10) Playlist
@@ -112,6 +147,21 @@ Create class `Playlist` with:
 Rules:
 - Preserve insertion order.
 """
+class Playlist():
+  def __init__(self) -> None:
+    self.songs = []
+    
+  def add(self, song: str) -> None:
+    self.songs.append(song)
+    
+  def __len__(self) -> int:
+    return len(self.songs)
+  
+  def __iter__(self):
+    return iter(self.songs)
+  
+  def __contains__(self, song: str) -> bool:
+    return song in self.songs
 
 
 """
@@ -125,7 +175,19 @@ Rules:
 - Negative price is clamped to `0`.
 - Discount percent is clamped to `[0, 100]`.
 """
-
+class Product(): 
+  def __init__(self, name: str, price: float) -> None:
+    self.name = name
+    self.price = price
+    
+  def get_price(self) -> float:
+    return self.price
+  
+  def set_price(self, value: float) -> None:
+    self.price = value if value >= 0 else 0
+    
+  def apply_discount(self, percent: float) -> None:
+    
 
 """
 12) Person + Student (inheritance)
