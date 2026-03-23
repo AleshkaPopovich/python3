@@ -14,6 +14,7 @@ import tempfile
 import unittest
 from contextlib import redirect_stdout
 from pathlib import Path
+from unittest.mock import patch
 
 THIS_DIR = Path(__file__).resolve().parent
 if str(THIS_DIR) not in sys.path:
@@ -24,48 +25,6 @@ problems = importlib.import_module(MODULE_NAME)
 
 
 class Lecture03ProblemsTest(unittest.TestCase):
-    def test_countdown(self) -> None:
-        self.assertEqual(list(problems.Countdown(5)), [5, 4, 3, 2, 1, 0])
-        self.assertEqual(list(problems.Countdown(5)), [5, 4, 3, 2, 1, 0])
-        self.assertEqual(list(problems.Countdown(-1)), [])
-
-    def test_step_iterator(self) -> None:
-        self.assertEqual(list(problems.StepIterator([10, 20, 30, 40, 50, 60])), [10, 30, 50])
-        self.assertEqual(list(problems.StepIterator([1, 2, 3, 4, 5, 6, 7], step=3)), [1, 4, 7])
-        with self.assertRaises(ValueError):
-            problems.StepIterator([1, 2], step=0)
-
-    def test_unique_consecutive_iterator(self) -> None:
-        data = [1, 1, 2, 2, 2, 3, 1, 1]
-        self.assertEqual(list(problems.UniqueConsecutiveIterator(data)), [1, 2, 3, 1])
-        self.assertEqual(list(problems.UniqueConsecutiveIterator([1, 2, 1, 2])), [1, 2, 1, 2])
-        self.assertEqual(list(problems.UniqueConsecutiveIterator([])), [])
-
-    def test_circular_iterator(self) -> None:
-        it = problems.CircularIterator(["A", "B", "C"], 8)
-        self.assertEqual(list(it), ["A", "B", "C", "A", "B", "C", "A", "B"])
-        self.assertEqual(list(problems.CircularIterator([1, 2], 0)), [])
-        with self.assertRaises(ValueError):
-            problems.CircularIterator([], 3)
-        with self.assertRaises(ValueError):
-            problems.CircularIterator([1], -1)
-
-    def test_read_words(self) -> None:
-        with tempfile.TemporaryDirectory() as tmpdir:
-            path = Path(tmpdir) / "sample.txt"
-            path.write_text("  one   two\n\nthree\n   four   five  ", encoding="utf-8")
-            self.assertEqual(list(problems.read_words(str(path))), ["one", "two", "three", "four", "five"])
-
-    def test_batch(self) -> None:
-        self.assertEqual(list(problems.batch([1, 2, 3, 4, 5, 6, 7], 3)), [[1, 2, 3], [4, 5, 6], [7]])
-        self.assertEqual(list(problems.batch((x for x in range(5)), 2)), [[0, 1], [2, 3], [4]])
-        with self.assertRaises(ValueError):
-            list(problems.batch([1, 2, 3], 0))
-
-    def test_flatten_generator(self) -> None:
-        data = [1, [2, 3], [4, [5, 6]], 7]
-        self.assertEqual(list(problems.flatten(data)), [1, 2, 3, 4, 5, 6, 7])
-        self.assertEqual(list(problems.flatten([[], [1, [2]], 3])), [1, 2, 3])
 
     def test_log_calls(self) -> None:
         @problems.log_calls
@@ -112,9 +71,11 @@ class Lecture03ProblemsTest(unittest.TestCase):
             diff(2, 5)
 
     def test_retry(self) -> None:
+        self.assertIsInstance(problems.Retry, type)
+
         attempts = {"n": 0}
 
-        @problems.retry(2)
+        @problems.Retry(2)
         def flaky() -> str:
             attempts["n"] += 1
             if attempts["n"] < 3:
@@ -126,7 +87,7 @@ class Lecture03ProblemsTest(unittest.TestCase):
 
         failures = {"n": 0}
 
-        @problems.retry(1)
+        @problems.Retry(1)
         def always_fail() -> None:
             failures["n"] += 1
             raise ValueError("boom")
@@ -136,12 +97,80 @@ class Lecture03ProblemsTest(unittest.TestCase):
         self.assertEqual(failures["n"], 2)
 
         with self.assertRaises(ValueError):
-            problems.retry(-1)
+            problems.Retry(-1)
+
+    def test_throttle(self) -> None:
+        self.assertIsInstance(problems.Throttle, type)
+
+        with self.assertRaises(ValueError):
+            problems.Throttle(-0.1)
+
+        calls = {"f": 0, "g": 0}
+
+        @problems.Throttle(1.0)
+        def first() -> str:
+            calls["f"] += 1
+            return "first"
+
+        @problems.Throttle(1.0)
+        def second() -> str:
+            calls["g"] += 1
+            return "second"
+
+        with patch.object(problems.time, "perf_counter", side_effect=[10.0, 10.2, 10.3, 11.05]):
+            self.assertEqual(first(), "first")
+            with self.assertRaises(RuntimeError):
+                first()
+            self.assertEqual(second(), "second")
+            self.assertEqual(first(), "first")
+
+        self.assertEqual(calls["f"], 2)
+        self.assertEqual(calls["g"], 1)
+
+    def test_call_limit(self) -> None:
+        self.assertIsInstance(problems.CallLimit, type)
+
+        with self.assertRaises(ValueError):
+            problems.CallLimit(-1)
+
+        limiter = problems.CallLimit(2)
+        calls = {"hello": 0, "bye": 0}
+
+        @limiter
+        def hello(name: str) -> str:
+            calls["hello"] += 1
+            return f"Hello, {name}"
+
+        @limiter
+        def bye() -> str:
+            calls["bye"] += 1
+            return "bye"
+
+        self.assertEqual(hello("Alice"), "Hello, Alice")
+        self.assertEqual(hello("Bob"), "Hello, Bob")
+        with self.assertRaises(RuntimeError):
+            hello("Charlie")
+        self.assertEqual(calls["hello"], 2)
+
+        self.assertEqual(bye(), "bye")
+        self.assertEqual(bye(), "bye")
+        with self.assertRaises(RuntimeError):
+            bye()
+        self.assertEqual(calls["bye"], 2)
+
+        @problems.CallLimit(0)
+        def never() -> None:
+            raise AssertionError("must not be called when limit is zero")
+
+        with self.assertRaises(RuntimeError):
+            never()
 
     def test_lru_cache(self) -> None:
+        self.assertIsInstance(problems.LruCache, type)
+
         calls = {"n": 0}
 
-        @problems.lru_cache(2)
+        @problems.LruCache(2)
         def square(x: int) -> int:
             calls["n"] += 1
             return x * x
@@ -156,7 +185,7 @@ class Lecture03ProblemsTest(unittest.TestCase):
 
         no_cache_calls = {"n": 0}
 
-        @problems.lru_cache(0)
+        @problems.LruCache(0)
         def identity(x: int) -> int:
             no_cache_calls["n"] += 1
             return x
@@ -167,7 +196,7 @@ class Lecture03ProblemsTest(unittest.TestCase):
 
         kw_calls = {"n": 0}
 
-        @problems.lru_cache(2)
+        @problems.LruCache(2)
         def greet(name: str, prefix: str = "Hi") -> str:
             kw_calls["n"] += 1
             return f"{prefix} {name}"
