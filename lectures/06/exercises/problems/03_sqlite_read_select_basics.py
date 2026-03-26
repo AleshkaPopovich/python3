@@ -16,14 +16,28 @@ def main() -> None:
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
 
-    # TODO: SELECT * FROM students
-    # rows = cur.fetchall()
+    # TODO SELECT * FROM students
+    cur.execute("SELECT * FROM students")
+    rows = cur.fetchall()
 
-    # TODO: SELECT name, email FROM students
-    # name_email_rows = cur.fetchall()
+    print("All rows:")
+    for row in rows:
+        print(row)
 
-    # TODO: SELECT one row for ana@example.com
-    # one_row = cur.fetchone()
+    # TODO SELECT name, email FROM students
+    cur.execute("SELECT name, email FROM students")
+    name_email_rows = cur.fetchall()
+
+    print("\nName and email only:")
+    for row in name_email_rows:
+        print(row)
+
+    # TODO SELECT one row for ana@example.com
+    cur.execute("SELECT * FROM students WHERE email = ?", ("ana@example.com",))
+    one_row = cur.fetchone()
+
+    print("\nOne row for ana@example.com:")
+    print(one_row)
 
     conn.close()
 

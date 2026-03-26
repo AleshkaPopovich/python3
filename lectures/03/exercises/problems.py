@@ -23,7 +23,10 @@ Problems:
 
 from __future__ import annotations
 
+import time
+from collections import OrderedDict
 from collections.abc import Callable, Iterable, Iterator, Sequence
+from functools import update_wrapper, wraps
 from typing import Any
 
 
@@ -38,13 +41,13 @@ class Countdown:
     """
 
     def __init__(self, n: int) -> None:
-        raise NotImplementedError
+        self.n = n
 
     def __iter__(self) -> Iterator[int]:
-        raise NotImplementedError
-
-    def __next__(self) -> int:
-        raise NotImplementedError
+        current = self.n
+        while current >= 0:
+            yield current
+            current -= 1
 
 
 class StepIterator:
@@ -62,13 +65,16 @@ class StepIterator:
     """
 
     def __init__(self, values: list[Any], step: int = 2) -> None:
-        raise NotImplementedError
+        if step <= 0:
+            raise ValueError("step must be positive")
+        self.values = values
+        self.step = step
 
     def __iter__(self) -> Iterator[Any]:
-        raise NotImplementedError
-
-    def __next__(self) -> Any:
-        raise NotImplementedError
+        index = 0
+        while index < len(self.values):
+            yield self.values[index]
+            index += self.step
 
 
 class UniqueConsecutiveIterator:
@@ -82,13 +88,12 @@ class UniqueConsecutiveIterator:
     """
 
     def __init__(self, values: list[Any]) -> None:
-        raise NotImplementedError
+        self.values = values
 
     def __iter__(self) -> Iterator[Any]:
-        raise NotImplementedError
-
-    def __next__(self) -> Any:
-        raise NotImplementedError
+        for n in range(len(self.values)):
+            if n == 0 or self.values[n] != self.values[n - 1]:
+                yield self.values[n]
 
 
 class CircularIterator:
@@ -103,13 +108,24 @@ class CircularIterator:
     """
 
     def __init__(self, sequence: Sequence[Any], k: int) -> None:
-        raise NotImplementedError
+        if not sequence or k < 0:
+            raise ValueError("invalid sequence or k")
+        self.sequence = sequence
+        self.k = k
 
     def __iter__(self) -> Iterator[Any]:
-        raise NotImplementedError
+        index = 0
+        while index < self.k:
+            yield self.sequence[index % len(self.sequence)]
+            index += 1
 
-    def __next__(self) -> Any:
-        raise NotImplementedError
+
+def _flatten_values(data: list[Any]) -> Iterator[Any]:
+    for item in data:
+        if isinstance(item, list):
+            yield from _flatten_values(item)
+        else:
+            yield item
 
 
 class FlattenIterator:
@@ -124,17 +140,26 @@ class FlattenIterator:
     """
 
     def __init__(self, data: list[Any]) -> None:
-        raise NotImplementedError
+        self._values = list(_flatten_values(data))
+        self._index = 0
 
     def __iter__(self) -> Iterator[Any]:
-        raise NotImplementedError
+        return self
 
     def __next__(self) -> Any:
-        raise NotImplementedError
-
+        if self._index >= len(self._values):
+            raise StopIteration
+        value = self._values[self._index]
+        self._index += 1
+        return value
 
 def read_words(filename: str) -> Iterator[str]:
-    """Problem 6. File word reader generator.
+    with open(filename, encoding="utf-8") as file:
+        for line in file:
+            for word in line.split():
+                yield word
+
+"""Problem 6. File word reader generator.
 
     Yield one word at a time from a text file without loading the whole
     file into memory.
@@ -143,7 +168,10 @@ def read_words(filename: str) -> Iterator[str]:
     >>> list(read_words("sample.txt"))
     ['one', 'two', 'three']
     """
-    raise NotImplementedError
+    
+
+        
+    
 
 
 def batch(iterable: Iterable[Any], size: int) -> Iterator[list[Any]]:
@@ -156,7 +184,17 @@ def batch(iterable: Iterable[Any], size: int) -> Iterator[list[Any]]:
     >>> list(batch([1, 2, 3, 4, 5, 6, 7], 3))
     [[1, 2, 3], [4, 5, 6], [7]]
     """
-    raise NotImplementedError
+    if size <= 0:
+        raise ValueError("size must be positive")
+
+    current_batch: list[Any] = []
+    for item in iterable:
+        current_batch.append(item)
+        if len(current_batch) == size:
+            yield current_batch
+            current_batch = []
+    if current_batch:
+        yield current_batch
 
 
 def flatten(data: list[Any]) -> Iterator[Any]:
@@ -168,7 +206,7 @@ def flatten(data: list[Any]) -> Iterator[Any]:
     >>> list(flatten([1, [2, 3], [4, [5, 6]], 7]))
     [1, 2, 3, 4, 5, 6, 7]
     """
-    raise NotImplementedError
+    yield from _flatten_values(data)
 
 
 def log_calls(func: Callable[..., Any]) -> Callable[..., Any]:
@@ -190,7 +228,15 @@ def log_calls(func: Callable[..., Any]) -> Callable[..., Any]:
     add(2, 3) -> 5
     5
     """
-    raise NotImplementedError
+    @wraps(func)
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
+        result = func(*args, **kwargs)
+        parts = [repr(arg) for arg in args]
+        parts.extend(f"{key}={value!r}" for key, value in kwargs.items())
+        print(f"{func.__name__}({', '.join(parts)}) -> {result!r}")
+        return result
+
+    return wrapper
 
 
 def measure_time(func: Callable[..., Any]) -> Callable[..., Any]:
@@ -206,7 +252,15 @@ def measure_time(func: Callable[..., Any]) -> Callable[..., Any]:
     >>> work()
     done
     """
-    raise NotImplementedError
+    @wraps(func)
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
+        started = time.perf_counter()
+        result = func(*args, **kwargs)
+        elapsed_ms = (time.perf_counter() - started) * 1000
+        print(f"Executed in {elapsed_ms:.3f} ms")
+        return result
+
+    return wrapper
 
 
 def count_calls(func: Callable[..., Any]) -> Callable[..., Any]:
@@ -224,7 +278,13 @@ def count_calls(func: Callable[..., Any]) -> Callable[..., Any]:
     >>> ping.calls
     2
     """
-    raise NotImplementedError
+    @wraps(func)
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
+        wrapper.calls += 1
+        return func(*args, **kwargs)
+
+    wrapper.calls = 0
+    return wrapper
 
 
 def ensure_non_negative(func: Callable[..., Any]) -> Callable[..., Any]:
@@ -239,7 +299,14 @@ def ensure_non_negative(func: Callable[..., Any]) -> Callable[..., Any]:
     >>> diff(5, 2)
     3
     """
-    raise NotImplementedError
+    @wraps(func)
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
+        result = func(*args, **kwargs)
+        if result < 0:
+            raise ValueError("negative result is not allowed")
+        return result
+
+    return wrapper
 
 
 def retry(times: int) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
@@ -253,7 +320,23 @@ def retry(times: int) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     ... def flaky():
     ...     ...
     """
-    raise NotImplementedError
+    if times < 0:
+        raise ValueError("times must be non-negative")
+
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
+        @wraps(func)
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
+            for attempt in range(times + 1):
+                try:
+                    return func(*args, **kwargs)
+                except Exception:
+                    if attempt == times:
+                        raise
+            raise RuntimeError("unreachable")
+
+        return wrapper
+
+    return decorator
 
 
 def lru_cache(maxsize: int) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
@@ -270,4 +353,31 @@ def lru_cache(maxsize: int) -> Callable[[Callable[..., Any]], Callable[..., Any]
     >>> square(2), square(3), square(2)
     (4, 9, 4)
     """
-    raise NotImplementedError
+    if maxsize < 0:
+        raise ValueError("maxsize must be non-negative")
+
+    class CachedCallable:
+        def __init__(self, func: Callable[..., Any]) -> None:
+            self.func = func
+            self.cache: OrderedDict[tuple[Any, ...], Any] = OrderedDict()
+            update_wrapper(self, func)
+
+        def __call__(self, *args: Any, **kwargs: Any) -> Any:
+            if maxsize == 0:
+                return self.func(*args, **kwargs)
+
+            key = (args, tuple(sorted(kwargs.items())))
+            if key in self.cache:
+                self.cache.move_to_end(key)
+                return self.cache[key]
+
+            result = self.func(*args, **kwargs)
+            self.cache[key] = result
+            if len(self.cache) > maxsize:
+                self.cache.popitem(last=False)
+            return result
+
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
+        return CachedCallable(func)
+
+    return decorator

@@ -4,7 +4,7 @@ Task:
 1. Install sqlite_web:
        pip install sqlite-web
 2. From lectures/06/exercises run:
-       python -m sqlite_web school.db
+       python3 -m sqlite_web school.db
 3. Open the local sqlite_web URL in a browser.
 4. In the SQL editor, create table `students` with this SQL:
 

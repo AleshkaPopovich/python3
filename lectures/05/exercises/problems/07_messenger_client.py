@@ -19,8 +19,22 @@ SENDER_NAME = "replace-with-your-name"
 
 
 def main() -> None:
-    # TODO: implement input loop and POST sending
-    pass
+    target_url = f"{TARGET_BASE_URL.rstrip('/')}/messages"
+
+    while True:
+        text = input("Message: ").strip()
+        if text.lower() in {"quit", "exit"}:
+            break
+        if not text:
+            continue
+
+        payload = {"sender": SENDER_NAME, "text": text}
+        try:
+            response = requests.post(target_url, json=payload, timeout=10)
+            response.raise_for_status()
+            print("Sent:", response.status_code, response.json())
+        except requests.RequestException as exc:
+            print(f"Send failed: {exc}")
 
 
 if __name__ == "__main__":

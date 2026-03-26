@@ -19,7 +19,10 @@ Problems:
 
 from __future__ import annotations
 
+import time
+from collections import OrderedDict
 from collections.abc import Callable
+from functools import wraps
 from typing import Any
 
 
@@ -42,7 +45,15 @@ def log_calls(func: Callable[..., Any]) -> Callable[..., Any]:
     add(2, 3) -> 5
     5
     """
-    raise NotImplementedError
+    @wraps(func)
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
+        result = func(*args, **kwargs)
+        parts = [repr(arg) for arg in args]
+        parts.extend(f"{key}={value!r}" for key, value in kwargs.items())
+        print(f"{func.__name__}({', '.join(parts)}) -> {result!r}")
+        return result
+
+    return wrapper
 
 
 def measure_time(func: Callable[..., Any]) -> Callable[..., Any]:
@@ -62,7 +73,15 @@ def measure_time(func: Callable[..., Any]) -> Callable[..., Any]:
     >>> work()
     done
     """
-    raise NotImplementedError
+    @wraps(func)
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
+        started = time.perf_counter()
+        result = func(*args, **kwargs)
+        elapsed_ms = (time.perf_counter() - started) * 1000
+        print(f"Executed in {elapsed_ms:.3f} ms")
+        return result
+
+    return wrapper
 
 
 def count_calls(func: Callable[..., Any]) -> Callable[..., Any]:
@@ -80,7 +99,13 @@ def count_calls(func: Callable[..., Any]) -> Callable[..., Any]:
     >>> ping.calls
     2
     """
-    raise NotImplementedError
+    @wraps(func)
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
+        wrapper.calls += 1
+        return func(*args, **kwargs)
+
+    wrapper.calls = 0
+    return wrapper
 
 
 def ensure_non_negative(func: Callable[..., Any]) -> Callable[..., Any]:
@@ -95,7 +120,14 @@ def ensure_non_negative(func: Callable[..., Any]) -> Callable[..., Any]:
     >>> diff(5, 2)
     3
     """
-    raise NotImplementedError
+    @wraps(func)
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
+        result = func(*args, **kwargs)
+        if result < 0:
+            raise ValueError("negative result is not allowed")
+        return result
+
+    return wrapper
 
 
 class Retry:
@@ -115,10 +147,22 @@ class Retry:
     """
 
     def __init__(self, times: int) -> None:
-        raise NotImplementedError
+        if times < 0:
+            raise ValueError("times must be non-negative")
+        self.times = times
 
     def __call__(self, func: Callable[..., Any]) -> Callable[..., Any]:
-        raise NotImplementedError
+        @wraps(func)
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
+            for attempt in range(self.times + 1):
+                try:
+                    return func(*args, **kwargs)
+                except Exception:
+                    if attempt == self.times:
+                        raise
+            raise RuntimeError("unreachable")
+
+        return wrapper
 
 
 class Throttle:
@@ -156,7 +200,25 @@ class Throttle:
     - Implement this as a class decorator
     """
 
-    pass
+    def __init__(self, interval: float) -> None:
+        if interval < 0:
+            raise ValueError("interval must be non-negative")
+        self.interval = interval
+
+    def __call__(self, func: Callable[..., Any]) -> Callable[..., Any]:
+        last_successful_call: float | None = None
+
+        @wraps(func)
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
+            nonlocal last_successful_call
+            now = time.perf_counter()
+            if last_successful_call is not None and now - last_successful_call < self.interval:
+                raise RuntimeError("Too many calls")
+            result = func(*args, **kwargs)
+            last_successful_call = now
+            return result
+
+        return wrapper
 
 
 class CallLimit:
@@ -197,7 +259,21 @@ class CallLimit:
     - Implement this as a class decorator
     """
 
-    pass
+    def __init__(self, limit: int) -> None:
+        if limit < 0:
+            raise ValueError("limit must be non-negative")
+        self.limit = limit
+
+    def __call__(self, func: Callable[..., Any]) -> Callable[..., Any]:
+        @wraps(func)
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
+            if wrapper.calls >= self.limit:
+                raise RuntimeError("Call limit exceeded")
+            wrapper.calls += 1
+            return func(*args, **kwargs)
+
+        wrapper.calls = 0
+        return wrapper
 
 
 class LruCache:
@@ -219,7 +295,27 @@ class LruCache:
     """
 
     def __init__(self, maxsize: int) -> None:
-        raise NotImplementedError
+        if maxsize < 0:
+            raise ValueError("maxsize must be non-negative")
+        self.maxsize = maxsize
 
     def __call__(self, func: Callable[..., Any]) -> Callable[..., Any]:
-        raise NotImplementedError
+        cache: OrderedDict[tuple[Any, ...], Any] = OrderedDict()
+
+        @wraps(func)
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
+            if self.maxsize == 0:
+                return func(*args, **kwargs)
+
+            key = (args, tuple(sorted(kwargs.items())))
+            if key in cache:
+                cache.move_to_end(key)
+                return cache[key]
+
+            result = func(*args, **kwargs)
+            cache[key] = result
+            if len(cache) > self.maxsize:
+                cache.popitem(last=False)
+            return result
+
+        return wrapper

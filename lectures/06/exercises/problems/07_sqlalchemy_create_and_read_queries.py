@@ -12,8 +12,8 @@ Starter:
 - Use `select(...)` queries.
 """
 
-from sqlalchemy import create_engine, select
-from sqlalchemy.orm import Session
+#from sqlalchemy import create_engine, select
+#from sqlalchemy.orm import Session
 
 from db_models import Assignment, Student
 
@@ -24,13 +24,60 @@ def main() -> None:
     engine = create_engine(DB_URL, echo=False)
 
     with Session(engine) as session:
-        # TODO 1: add an assignment for an existing student
+        student = session.scalars(select(Student).order_by(Student.id)).first()
+        if student is None:
+            print("No students found. Add students before creating assignments.")
+            return
 
-        # TODO 2: read all students
+        assignment = session.scalars(
+            select(Assignment).where(
+                Assignment.student_id == student.id,
+                Assignment.title == "SQLAlchemy intro",
+            )
+        ).first()
+        if assignment is None:
+            assignment = Assignment(
+                title="SQLAlchemy intro",
+                score=95,
+                student=student,
+            )
+            session.add(assignment)
+            session.flush()
+            print(f"Added assignment for {student.name}: {assignment.title} ({assignment.score})")
+        else:
+            print(
+                f"Assignment already exists for {student.name}: "
+                f"{assignment.title} ({assignment.score})"
+            )
 
-        # TODO 3: read filtered + sorted students
+        all_students = session.scalars(select(Student).order_by(Student.id)).all()
+        print("\nAll students:")
+        for current_student in all_students:
+            print(
+                current_student.id,
+                current_student.name,
+                current_student.age,
+                current_student.email,
+                current_student.track,
+            )
 
-        # TODO 4: read assignments with student data
+        filtered_students = session.scalars(
+            select(Student)
+            .where(Student.age >= 22)
+            .order_by(Student.age.desc(), Student.id)
+        ).all()
+        print("\nStudents age >= 22 (oldest first):")
+        for current_student in filtered_students:
+            print(current_student.id, current_student.name, current_student.age)
+
+        assignment_rows = session.execute(
+            select(Assignment.title, Assignment.score, Student.name)
+            .join(Assignment.student)
+            .order_by(Assignment.id)
+        ).all()
+        print("\nAssignments with student names:")
+        for title, score, student_name in assignment_rows:
+            print(title, score, student_name)
 
         session.commit()
 

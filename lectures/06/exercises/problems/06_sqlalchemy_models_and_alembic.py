@@ -34,10 +34,37 @@ Steps:
 """
 
 
-def main() -> None:
-    # TODO: execute the steps in the docstring.
-    print("Follow the migration workflow from the docstring.")
+#from sqlalchemy import Integer, String, ForeignKey
+#from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
-if __name__ == "__main__":
-    main()
+class Base(DeclarativeBase):
+    pass
+
+
+class Student(Base):
+    __tablename__ = "students"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    age: Mapped[int] = mapped_column(Integer, nullable=False)
+    email: Mapped[str] = mapped_column(String, nullable=False)
+    track: Mapped[str] = mapped_column(String, nullable=False)
+
+    assignments: Mapped[list["Assignment"]] = relationship(
+        back_populates="student"
+    )
+
+
+class Assignment(Base):
+    __tablename__ = "assignments"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    title: Mapped[str] = mapped_column(String, nullable=False)
+    student_id: Mapped[int] = mapped_column(
+        ForeignKey("students.id"),
+        nullable=False
+    )
+
+    student: Mapped["Student"] = relationship(
+        back_populates="assignments"
+    )

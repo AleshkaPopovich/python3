@@ -8,6 +8,11 @@ names -> references -> objects
 
 from __future__ import annotations
 
+import dis
+import gc
+import sys
+import weakref
+from copy import deepcopy
 from collections.abc import Callable
 
 
@@ -26,7 +31,7 @@ def extract_opnames(source: str) -> list[str]:
         source = "x = 2 + 3\\nprint(x)"
         output shape: ["RESUME", "LOAD_CONST", ...]
     """
-    raise NotImplementedError
+    pass
 
 
 def aliasing_after_append() -> tuple[list[int], list[int], bool]:
@@ -43,7 +48,10 @@ def aliasing_after_append() -> tuple[list[int], list[int], bool]:
     Return:
         (a, b, same_identity) where same_identity is `id(a) == id(b)`.
     """
-    raise NotImplementedError
+    a = [1, 2]
+    b = a
+    b.append(3)
+    return a, b, id(a) == id(b)
 
 
 def copy_after_append() -> tuple[list[int], list[int], bool]:
@@ -60,7 +68,10 @@ def copy_after_append() -> tuple[list[int], list[int], bool]:
     Return:
         (a, b, same_identity) where same_identity should be False.
     """
-    raise NotImplementedError
+    a = [1, 2]
+    b = a.copy()
+    b.append(3)
+    return a, b, id(a) == id(b)
 
 
 def rebind_after_concat() -> tuple[list[int], list[int], bool]:
@@ -78,7 +89,10 @@ def rebind_after_concat() -> tuple[list[int], list[int], bool]:
         (a, b, same_identity) with `a == [1, 2]`, `b == [1, 2, 3]`,
         and same_identity False.
     """
-    raise NotImplementedError
+    a = [1, 2]
+    b = a
+    b = b + [3]
+    return a, b, id(a) == id(b)
 
 
 def refcount_steps() -> tuple[int, int, int]:
@@ -96,7 +110,13 @@ def refcount_steps() -> tuple[int, int, int]:
         with_alias_count == start_count + 1
         after_delete_count == start_count
     """
-    raise NotImplementedError
+    obj: object = []
+    start_count = sys.getrefcount(obj)
+    alias = obj
+    with_alias_count = sys.getrefcount(obj)
+    del alias
+    after_delete_count = sys.getrefcount(obj)
+    return start_count, with_alias_count, after_delete_count
 
 
 def make_incrementer(start: int = 0) -> Callable[[], int]:
@@ -112,7 +132,13 @@ def make_incrementer(start: int = 0) -> Callable[[], int]:
         inc() -> 11
         inc() -> 12
     """
-    raise NotImplementedError
+    value = start
+
+    def increment() -> int:
+        nonlocal value
+        value += 1
+        return value
+    return increment
 
 
 def inject_with_exec(namespace: dict[str, object], statement: str) -> dict[str, object]:
@@ -126,7 +152,7 @@ def inject_with_exec(namespace: dict[str, object], statement: str) -> dict[str, 
         inject_with_exec(ns, "x = 42")
         ns["x"] == 42
     """
-    raise NotImplementedError
+    pass
 
 
 def function_locals_snapshot() -> dict[str, int]:
@@ -139,7 +165,12 @@ def function_locals_snapshot() -> dict[str, int]:
     Return `dict(locals())` from that inner function.
     Expected output shape: {"a": 10, "b": 20}
     """
-    raise NotImplementedError
+    def inner() -> dict[str, int]:
+        a = 10
+        b = 20
+        return dict(locals())
+
+    return inner()
 
 
 def cycle_collected() -> bool:
@@ -152,7 +183,7 @@ def cycle_collected() -> bool:
     Return:
         True only if both weak references are now None.
     """
-    raise NotImplementedError
+    pass
 
 
 def shallow_vs_deep_copy_state() -> tuple[list[list[int]], list[list[int]], list[list[int]]]:
@@ -172,4 +203,11 @@ def shallow_vs_deep_copy_state() -> tuple[list[list[int]], list[list[int]], list
         shallow == [[1, 99], [2]]
         deep == [[1], [2]]
     """
-    raise NotImplementedError
+    originsal = [[1], [2]]
+    shallow = originsal.copy()
+    deep = deepcopy(originsal)
+    shallow[0].append(99)
+    return originsal, shallow, deep
+    
+
+
