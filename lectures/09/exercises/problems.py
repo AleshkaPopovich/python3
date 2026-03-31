@@ -17,7 +17,7 @@ from collections.abc import Callable
 
 
 def extract_opnames(source: str) -> list[str]:
-    """Mission 1: inspect bytecode produced from source text.
+    """Mission 1 (Optional): inspect bytecode produced from source text.
 
     Goal:
         Show that Python executes bytecode instructions.
@@ -142,7 +142,7 @@ def make_incrementer(start: int = 0) -> Callable[[], int]:
 
 
 def inject_with_exec(namespace: dict[str, object], statement: str) -> dict[str, object]:
-    """Mission 7: inject names dynamically using `exec`.
+    """Mission 7 (Optional): inject names dynamically using `exec`.
 
     Execute `statement` in the provided `namespace` dictionary.
     Return the same dictionary object after execution.
@@ -174,7 +174,7 @@ def function_locals_snapshot() -> dict[str, int]:
 
 
 def cycle_collected() -> bool:
-    """Mission 9: verify cycle garbage collection.
+    """Mission 9 (Optional): verify cycle garbage collection.
 
     Create two objects that reference each other (a cycle).
     Keep weak references to both objects, delete strong references,
